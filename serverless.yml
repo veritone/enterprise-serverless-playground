@@ -1,0 +1,19 @@
+service: enterprise-serverless-playground
+frameworkVersion: '3'
+
+plugins:
+  - serverless-plugin-typescript
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  stage: test
+  region: us-east-1
+
+functions:
+  index:
+    handler: src/hello.handler
+    events:
+      - http:
+          method: get
+          path: /hello
