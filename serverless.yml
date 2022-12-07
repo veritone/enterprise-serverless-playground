@@ -3,6 +3,7 @@ frameworkVersion: '3'
 
 plugins:
   - serverless-plugin-typescript
+  - serverless-plugin-include-dependencies
 
 provider:
   name: aws
@@ -11,9 +12,88 @@ provider:
   region: us-east-1
 
 functions:
-  index:
+  hello:
     handler: src/hello.handler
     events:
       - http:
           method: get
           path: /hello
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+            scopes:
+              - Something/hello
+
+resources:
+  Resources:
+#    EnterpriseServerlessPlayground:
+#      Type: AWS::Serverless::Api
+#      Properties:
+#        StageName: test
+#        Cors: "'*'"
+#        Auth:
+#          DefaultAuthorizer: EnterprisePlaygroundAuthorizer
+#          Authorizers:
+#            EnterprisePlaygroundAuthorizer:
+#              UserPoolArn: !GetAtt EnterprisePlaygroundPool.Arn
+    EnterpriseCognitoAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        AuthorizerResultTtlInSeconds: 300
+        IdentitySource: method.request.header.Authorization
+        Name: Cognito
+        RestApiId:
+          # TODO: we need something to ref here. Commented out above because I didn't know how to make it.
+          Ref: YourApiGatewayName
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - Fn::GetAtt:
+              - EnterprisePlayground
+              - Arn
+    # TODO: Figure out authorizer and figure out how to put it on an endpoint.
+    EnterprisePlayground:
+      Type: AWS::Cognito::UserPool
+      # TODO: Properties need to be figured out and match document.
+      # TODO: We need the domain in order to set up M2M clients with client-credentials.
+      Properties:
+        UserPoolName: ${self:service}-cognito-pool-${self:provider.stage}
+        MfaConfiguration: OFF
+        UsernameAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: True
+            RequireNumbers: True
+            RequireSymbols: True
+            RequireUppercase: True
+    EnterprisePlaygroundCognitoDomain:
+      Type: AWS::Cognito::UserPoolDomain
+      Properties:
+        Domain: ${self:service}-${self:provider.stage}
+        UserPoolId:
+          Ref: EnterprisePlayground
+    EnterprisePlaygroundPoolResourceServer:
+      Type: AWS::Cognito::UserPoolResourceServer
+      Properties:
+        Name: ${self:service}
+        # TODO: This should be the URL for Enterprise, not this. How can we get that?
+        Identifier: Something
+        CertificateArn:
+        Scopes:
+          - ScopeName: hello
+            ScopeDescription: say hello
+        UserPoolId:
+          Ref: EnterprisePlayground
+    EnterprisePlaygroundPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: PandoLogic
+        GenerateSecret: true
+        AllowedOAuthFlows:
+          - client_credentials
+        AllowedOAuthScopes:
+          - Something/hello
+        UserPoolId:
+          Ref: EnterprisePlayground
