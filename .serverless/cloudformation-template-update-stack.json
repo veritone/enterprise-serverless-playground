@@ -161,7 +161,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/enterprise-serverless-prototype/test/1670603322854-2022-12-09T16:28:42.854Z/enterprise-serverless-prototype.zip"
+          "S3Key": "serverless/enterprise-serverless-prototype/test/1670621246231-2022-12-09T21:27:26.231Z/enterprise-serverless-prototype.zip"
         },
         "Handler": "src/hello.handler",
         "Runtime": "nodejs16.x",
@@ -268,7 +268,7 @@
         "HelloLambdaPermissionApiGateway"
       ]
     },
-    "ApiGatewayDeployment1670603314862": {
+    "ApiGatewayDeployment1670621238362": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
         "RestApiId": {
@@ -355,7 +355,10 @@
             }
           ]
         },
-        "MfaConfiguration": "OFF",
+        "MfaConfiguration": "ON",
+        "EnabledMfas": [
+          "SOFTWARE_TOKEN_MFA"
+        ],
         "UsernameAttributes": [
           "email"
         ],
@@ -409,6 +412,9 @@
       }
     },
     "EnterprisePrototypePoolClient": {
+      "DependsOn": [
+        "EnterprisePrototypePoolResourceServer"
+      ],
       "Type": "AWS::Cognito::UserPoolClient",
       "Properties": {
         "ClientName": "PandoLogic",
