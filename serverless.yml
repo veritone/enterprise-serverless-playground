@@ -1,4 +1,4 @@
-service: enterprise-serverless-playground
+service: enterprise-serverless-prototype
 frameworkVersion: '3'
 
 plugins:
@@ -9,7 +9,7 @@ provider:
   name: aws
   runtime: nodejs16.x
   stage: test
-  region: us-east-1
+  region: us-east-2
 
 functions:
   hello:
@@ -21,7 +21,7 @@ functions:
           authorizer:
             type: COGNITO_USER_POOLS
             authorizerId:
-              Ref: ApiGatewayAuthorizer
+              Ref: EnterpriseCognitoAuthorizer #ApiGatewayAuthorizer
             scopes:
               - Something/hello
 
@@ -38,27 +38,38 @@ resources:
 #            EnterprisePlaygroundAuthorizer:
 #              UserPoolArn: !GetAtt EnterprisePlaygroundPool.Arn
     EnterpriseCognitoAuthorizer:
+      DependsOn:
+        - ApiGatewayRestApi
       Type: AWS::ApiGateway::Authorizer
       Properties:
         AuthorizerResultTtlInSeconds: 300
         IdentitySource: method.request.header.Authorization
-        Name: Cognito
+        Name: cognito-authorizer
         RestApiId:
-          # TODO: we need something to ref here. Commented out above because I didn't know how to make it.
-          Ref: YourApiGatewayName
+          Ref: ApiGatewayRestApi
         Type: COGNITO_USER_POOLS
         ProviderARNs:
           - Fn::GetAtt:
-              - EnterprisePlayground
+              - EnterprisePrototype
               - Arn
     # TODO: Figure out authorizer and figure out how to put it on an endpoint.
-    EnterprisePlayground:
+    EnterprisePrototype:
       Type: AWS::Cognito::UserPool
       # TODO: Properties need to be figured out and match document.
       # TODO: We need the domain in order to set up M2M clients with client-credentials.
       Properties:
-        UserPoolName: ${self:service}-cognito-pool-${self:provider.stage}
-        MfaConfiguration: OFF
+        UserPoolName: ${self:service}-cognito-userpool-${self:provider.stage}
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: True
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: admin_only
+              Priority: 1
+        MfaConfiguration: ON
+        EnabledMfas:
+          - SOFTWARE_TOKEN_MFA
+        #AutoVerifiedAttributes:
+        #  - phone_number
         UsernameAttributes:
           - email
         Policies:
@@ -68,13 +79,23 @@ resources:
             RequireNumbers: True
             RequireSymbols: True
             RequireUppercase: True
-    EnterprisePlaygroundCognitoDomain:
+            TemporaryPasswordValidityDays: 7
+        Schema:
+          - Name: "name"
+            Required: True
+            Mutable: True
+          - Name: "email"
+            Required: True
+            Mutable: True
+    EnterprisePrototypeCognitoDomain:
       Type: AWS::Cognito::UserPoolDomain
       Properties:
+      #  CustomDomainConfig:
+      #    CertificateArn:
         Domain: ${self:service}-${self:provider.stage}
         UserPoolId:
-          Ref: EnterprisePlayground
-    EnterprisePlaygroundPoolResourceServer:
+          Ref: EnterprisePrototype
+    EnterprisePrototypePoolResourceServer:
       Type: AWS::Cognito::UserPoolResourceServer
       Properties:
         Name: ${self:service}
@@ -85,8 +106,10 @@ resources:
           - ScopeName: hello
             ScopeDescription: say hello
         UserPoolId:
-          Ref: EnterprisePlayground
-    EnterprisePlaygroundPoolClient:
+          Ref: EnterprisePrototype
+    EnterprisePrototypePoolClient:
+      DependsOn:
+        - EnterprisePrototypePoolResourceServer
       Type: AWS::Cognito::UserPoolClient
       Properties:
         ClientName: PandoLogic
@@ -96,4 +119,4 @@ resources:
         AllowedOAuthScopes:
           - Something/hello
         UserPoolId:
-          Ref: EnterprisePlayground
+          Ref: EnterprisePrototype
